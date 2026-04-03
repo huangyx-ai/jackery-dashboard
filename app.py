@@ -588,11 +588,6 @@ document.addEventListener('keydown',function(e){
 @app.route("/")
 def index():
     d = get_data()
-    html = HTML_TEMPLATE.replace("{{ d.", "%(").replace(" }}", ")s") % {
-        k: v for k, v in d.items()
-    }
-    # Use proper template rendering
-    from flask import render_template_string
     return render_template_string(HTML_TEMPLATE, d=d)
 
 @app.route("/verify", methods=["POST"])
