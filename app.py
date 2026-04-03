@@ -1,18 +1,15 @@
-from flask import Flask, request, jsonify, render_template_string, send_from_directory
+from flask import Flask, request, jsonify, render_template_string
 import redis
 import json
 import os
 
 app = Flask(__name__)
 
-# Redis connection
 REDIS_URL = os.environ.get("REDIS_URL", "redis://localhost:6379")
 r = redis.from_url(REDIS_URL, decode_responses=True)
-
 REDIS_KEY = "jackery_dashboard_data"
 EDIT_PASSWORD = os.environ.get("EDIT_PASSWORD", "jackery2026")
 
-# Default data
 DEFAULT_DATA = {
     "hero_badge": "日本地区月度达成",
     "hero_sub": "订单收入合计",
@@ -20,15 +17,13 @@ DEFAULT_DATA = {
     "hero_rate": "134%",
     "hero_lbl": "总达成率 · 创2025年8月以来历史新高",
     "k1": "2600万", "k1l": "营运利润",
-    "k2": "152%",   "k2l": "利润达成率",
-    "k3": "18.7%",  "k3l": "利润率",
-    # 营运利润
+    "k2": "152%", "k2l": "利润达成率",
+    "k3": "18.7%", "k3l": "利润率",
     "p_pk": "152% 达成",
     "p_num": "2600万",
     "p_t1": "达成率 152%", "p_t2": "利润率 18.7%", "p_t3": "超额完成目标",
     "p_pct": "152%",
     "p_b1": "2600万", "p_b1s": "达成 152%", "p_b2": "18.7%",
-    # 第三方
     "tp_pk": "8050万 · 174%",
     "tp_num": "8050万",
     "tp_t1": "达成率 174%", "tp_t2": "同比 +65%", "tp_t3": "利润率 18%",
@@ -38,7 +33,6 @@ DEFAULT_DATA = {
     "tp_mix1": "32%", "tp_mix2": "52%", "tp_mix3": "+26%",
     "tp_m1v": "32%", "tp_m2v": "52%",
     "tp_b1": "174%", "tp_b2": "65%",
-    # 官网
     "w_pk": "3360万 · 124%",
     "w_num": "3360万",
     "w_t1": "达成率 124%", "w_t2": "★ 2025年8月以来历史新高",
@@ -47,7 +41,6 @@ DEFAULT_DATA = {
     "w_rate": "124%",
     "w_pct2": "70%", "w_ogsm": "+10%",
     "w_m1": "60%", "w_m2": "70%",
-    # 渠道
     "c_pk": "2777万 · 历史新高",
     "c_num": "2777万",
     "c_t1": "★ 成立以来历史新高", "c_t2": "同比 +38%", "c_t3": "利润率 18%",
@@ -55,15 +48,12 @@ DEFAULT_DATA = {
     "c_b1": "18%", "c_b1s": "收入达成 200%", "c_b2": "18%",
     "tv_total": "3783台", "tv_badge": "★ 销量历史新高",
     "tv_1": "3783", "tv_2": "2123", "tv_3": "1600",
-    # 韩国台湾
     "kr_num": "202万", "kr_yoy": "同比 +110%", "kr_pct": "+110%",
     "tw_yoy": ">100%", "tw_pm": "利润率 40%", "tw_pct": ">100%",
-    # 市占
     "amz_sh": "47%", "amz_yoy": "↑ 同比 +8%", "amz_ld": "领先第二名 29%",
-    "rt_sh": "43%",  "rt_yoy": "↑ 同比 +5%",  "rt_ld": "领先第二名 27%",
+    "rt_sh": "43%", "rt_yoy": "↑ 同比 +5%", "rt_ld": "领先第二名 27%",
     "amz_yoy2": "+8%", "amz_ld2": "领先第二 29%",
-    "rt_yoy2": "+5%",  "rt_ld2": "领先第二 27%",
-    # footer
+    "rt_yoy2": "+5%", "rt_ld2": "领先第二 27%",
     "footer_sub": "日本 · 韩国 · 台湾 | 月度达成情况"
 }
 
@@ -71,7 +61,6 @@ def get_data():
     raw = r.get(REDIS_KEY)
     if raw:
         data = json.loads(raw)
-        # fill missing keys with defaults
         for k, v in DEFAULT_DATA.items():
             data.setdefault(k, v)
         return data
@@ -80,13 +69,8 @@ def get_data():
 def save_data(data):
     r.set(REDIS_KEY, json.dumps(data, ensure_ascii=False))
 
-HTML_TEMPLATE = """<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Jackery 日本地区达成情况</title>
-<style>
+def build_html(d):
+    css = """
 *{margin:0;padding:0;box-sizing:border-box;}
 :root{
   --gold:#F5A623;--gold-dim:rgba(245,166,35,0.15);--gold-b:rgba(245,166,35,0.3);
@@ -106,7 +90,6 @@ body{background:var(--bg0);color:var(--t1);font-family:'PingFang SC','Microsoft 
 .btn-edit{background:var(--gold-dim);border:1px solid var(--gold-b);color:var(--gold);}
 .btn-edit:hover{background:rgba(245,166,35,0.28);}
 .btn-save{background:rgba(62,207,110,0.15);border:1px solid var(--green-b);color:var(--green);display:none;}
-.btn-save:hover{background:rgba(62,207,110,0.28);}
 .btn-cancel{background:rgba(255,255,255,0.05);border:1px solid var(--border);color:var(--t2);display:none;}
 .edit-hint{display:none;background:rgba(245,166,35,0.08);border-bottom:1px solid var(--gold-b);padding:9px 20px;font-size:11px;color:var(--gold);text-align:center;}
 .save-toast{display:none;position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:rgba(62,207,110,0.9);color:#fff;padding:10px 24px;border-radius:20px;font-size:13px;font-weight:600;z-index:999;}
@@ -194,7 +177,7 @@ body.editing .ef:focus{background:rgba(245,166,35,0.18);outline:2px solid var(--
 .footer-sub{font-size:11px;color:var(--t3);margin-top:6px;}
 .pwd-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:200;align-items:center;justify-content:center;}
 .pwd-modal.show{display:flex;}
-.pwd-box{background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:28px 28px;width:300px;text-align:center;}
+.pwd-box{background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:28px;width:300px;text-align:center;}
 .pwd-title{font-size:15px;font-weight:600;margin-bottom:6px;}
 .pwd-sub{font-size:12px;color:var(--t3);margin-bottom:18px;}
 .pwd-input{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 14px;font-size:14px;color:var(--t1);outline:none;margin-bottom:12px;text-align:center;letter-spacing:2px;}
@@ -203,11 +186,14 @@ body.editing .ef:focus{background:rgba(245,166,35,0.18);outline:2px solid var(--
 .pwd-btns{display:flex;gap:8px;}
 .pwd-confirm{flex:1;background:var(--gold-dim);border:1px solid var(--gold-b);color:var(--gold);border-radius:8px;padding:10px;font-size:13px;font-weight:600;cursor:pointer;}
 .pwd-close{flex:1;background:rgba(255,255,255,0.05);border:1px solid var(--border);color:var(--t2);border-radius:8px;padding:10px;font-size:13px;cursor:pointer;}
-</style>
-</head>
-<body>
-<div class="wrap">
+"""
 
+    def ef(field_id):
+        val = d.get(field_id, "")
+        return '<span class="ef" id="{}">{}</span>'.format(field_id, val)
+
+    body = """
+<div class="wrap">
 <div class="toolbar">
   <div class="toolbar-title">Jackery 日本地区达成情况</div>
   <div class="toolbar-btns">
@@ -219,7 +205,6 @@ body.editing .ef:focus{background:rgba(245,166,35,0.18);outline:2px solid var(--
 <div class="edit-hint" id="editHint">点击任意文字或数字直接修改 · 修改后点「保存」同步给所有人</div>
 <div class="save-toast" id="saveToast">✓ 已保存，所有人可见</div>
 
-<!-- PASSWORD MODAL -->
 <div class="pwd-modal" id="pwdModal">
   <div class="pwd-box">
     <div class="pwd-title">编辑验证</div>
@@ -233,362 +218,227 @@ body.editing .ef:focus{background:rgba(245,166,35,0.18);outline:2px solid var(--
   </div>
 </div>
 
-<!-- HERO -->
 <div class="hero">
-  <div class="hero-badge">★ <span class="ef" id="hero_badge">{{ d.hero_badge }}</span></div>
-  <div class="hero-sub"><span class="ef" id="hero_sub">{{ d.hero_sub }}</span></div>
-  <div class="hero-num"><span class="ef" id="hero_num">{{ d.hero_num }}</span><span class="hero-unit">亿</span></div>
-  <div class="hero-rate"><span class="ef" id="hero_rate">{{ d.hero_rate }}</span></div>
-  <div class="hero-rate-lbl"><span class="ef" id="hero_lbl">{{ d.hero_lbl }}</span></div>
+  <div class="hero-badge">★ {hero_badge}</div>
+  <div class="hero-sub">{hero_sub}</div>
+  <div class="hero-num">{hero_num}<span class="hero-unit">亿</span></div>
+  <div class="hero-rate">{hero_rate}</div>
+  <div class="hero-rate-lbl">{hero_lbl}</div>
 </div>
 
 <div class="band">
-  <div class="kpi"><div class="kpi-v"><span class="ef" id="k1">{{ d.k1 }}</span></div><div class="kpi-l"><span class="ef" id="k1l">{{ d.k1l }}</span></div></div>
-  <div class="kpi"><div class="kpi-v g"><span class="ef" id="k2">{{ d.k2 }}</span></div><div class="kpi-l"><span class="ef" id="k2l">{{ d.k2l }}</span></div></div>
-  <div class="kpi"><div class="kpi-v t"><span class="ef" id="k3">{{ d.k3 }}</span></div><div class="kpi-l"><span class="ef" id="k3l">{{ d.k3l }}</span></div></div>
+  <div class="kpi"><div class="kpi-v">{k1}</div><div class="kpi-l">{k1l}</div></div>
+  <div class="kpi"><div class="kpi-v g">{k2}</div><div class="kpi-l">{k2l}</div></div>
+  <div class="kpi"><div class="kpi-v t">{k3}</div><div class="kpi-l">{k3l}</div></div>
 </div>
-
 <div class="gap"></div>
 
-<!-- 营运利润 -->
 <div class="sec">
   <div class="sec-hd" onclick="tog(this)">
     <div class="sec-hd-l"><div class="bar g"></div><div class="sec-ttl">营运利润达成</div></div>
-    <div style="display:flex;align-items:center;gap:10px;">
-      <div class="sec-pk g"><span class="ef" id="p_pk">{{ d.p_pk }}</span></div>
-      <div class="chev open">▼</div>
-    </div>
+    <div style="display:flex;align-items:center;gap:10px;"><div class="sec-pk g">{p_pk}</div><div class="chev open">▼</div></div>
   </div>
   <div class="sec-bd" style="display:block;">
     <div class="cl g">
       <div class="cl-lbl">营运利润</div>
-      <div class="cl-num g"><span class="ef" id="p_num">{{ d.p_num }}</span></div>
-      <div class="tags">
-        <span class="tag tag-g"><span class="ef" id="p_t1">{{ d.p_t1 }}</span></span>
-        <span class="tag tag-t"><span class="ef" id="p_t2">{{ d.p_t2 }}</span></span>
-        <span class="tag tag-w"><span class="ef" id="p_t3">{{ d.p_t3 }}</span></span>
-      </div>
+      <div class="cl-num g">{p_num}</div>
+      <div class="tags"><span class="tag tag-g">{p_t1}</span><span class="tag tag-t">{p_t2}</span><span class="tag tag-w">{p_t3}</span></div>
     </div>
-    <div class="pb">
-      <div class="pb-top"><span>达成进度</span><span class="ef" id="p_pct">{{ d.p_pct }}</span></div>
-      <div class="pb-bg"><div class="pb-fill g" style="width:100%"></div></div>
-    </div>
+    <div class="pb"><div class="pb-top"><span>达成进度</span><span>{p_pct}</span></div><div class="pb-bg"><div class="pb-fill g" style="width:100%"></div></div></div>
     <div class="dv"></div>
     <div class="two">
-      <div class="box"><div class="box-l">营运利润</div><div class="box-v o"><span class="ef" id="p_b1">{{ d.p_b1 }}</span></div><div class="box-s"><span class="ef" id="p_b1s">{{ d.p_b1s }}</span></div></div>
-      <div class="box"><div class="box-l">利润率</div><div class="box-v g"><span class="ef" id="p_b2">{{ d.p_b2 }}</span></div><div class="box-s">Profit Margin</div></div>
+      <div class="box"><div class="box-l">营运利润</div><div class="box-v o">{p_b1}</div><div class="box-s">{p_b1s}</div></div>
+      <div class="box"><div class="box-l">利润率</div><div class="box-v g">{p_b2}</div><div class="box-s">Profit Margin</div></div>
     </div>
   </div>
 </div>
-
 <div class="gap"></div>
 
-<!-- 第三方 -->
 <div class="sec">
   <div class="sec-hd" onclick="tog(this)">
     <div class="sec-hd-l"><div class="bar"></div><div class="sec-ttl">第三方电商战果</div></div>
-    <div style="display:flex;align-items:center;gap:10px;">
-      <div class="sec-pk"><span class="ef" id="tp_pk">{{ d.tp_pk }}</span></div>
-      <div class="chev open">▼</div>
-    </div>
+    <div style="display:flex;align-items:center;gap:10px;"><div class="sec-pk">{tp_pk}</div><div class="chev open">▼</div></div>
   </div>
   <div class="sec-bd" style="display:block;">
     <div class="cl">
       <div class="cl-lbl">第三方订单收入</div>
-      <div class="cl-num"><span class="ef" id="tp_num">{{ d.tp_num }}</span></div>
-      <div class="tags">
-        <span class="tag tag-o"><span class="ef" id="tp_t1">{{ d.tp_t1 }}</span></span>
-        <span class="tag tag-g"><span class="ef" id="tp_t2">{{ d.tp_t2 }}</span></span>
-        <span class="tag tag-t"><span class="ef" id="tp_t3">{{ d.tp_t3 }}</span></span>
-      </div>
+      <div class="cl-num">{tp_num}</div>
+      <div class="tags"><span class="tag tag-o">{tp_t1}</span><span class="tag tag-g">{tp_t2}</span><span class="tag tag-t">{tp_t3}</span></div>
     </div>
-    <div class="pb">
-      <div class="pb-top"><span>达成进度</span><span class="ef" id="tp_pct">{{ d.tp_pct }}</span></div>
-      <div class="pb-bg"><div class="pb-fill" style="width:100%"></div></div>
-    </div>
+    <div class="pb"><div class="pb-top"><span>达成进度</span><span>{tp_pct}</span></div><div class="pb-bg"><div class="pb-fill" style="width:100%"></div></div></div>
     <div class="dv"></div>
     <div class="cl r" style="margin-bottom:12px;">
       <div class="cl-lbl">销售广告费率</div>
-      <div class="cl-num r"><span class="ef" id="tp_adv">{{ d.tp_adv }}</span></div>
-      <div class="tags">
-        <span class="tag tag-g"><span class="ef" id="tp_a1">{{ d.tp_a1 }}</span></span>
-        <span class="tag tag-g"><span class="ef" id="tp_a2">{{ d.tp_a2 }}</span></span>
-        <span class="tag tag-r"><span class="ef" id="tp_a3">{{ d.tp_a3 }}</span></span>
-      </div>
+      <div class="cl-num r">{tp_adv}</div>
+      <div class="tags"><span class="tag tag-g">{tp_a1}</span><span class="tag tag-g">{tp_a2}</span><span class="tag tag-r">{tp_a3}</span></div>
     </div>
     <div class="dv"></div>
-    <div class="ins"><b>1.5度电+</b> 销售占比同比提升 · <b><span class="ef" id="tp_mix1">{{ d.tp_mix1 }}</span></b> → <b class="g"><span class="ef" id="tp_mix2">{{ d.tp_mix2 }}</span></b>，同比拉升 <b><span class="ef" id="tp_mix3">{{ d.tp_mix3 }}</span></b></div>
-    <div class="mx">
-      <div class="mx-top"><span>去年同期占比</span><span class="ef" id="tp_m1v">{{ d.tp_m1v }}</span></div>
-      <div class="mx-bg"><div class="mx-fill dim" style="width:32%"></div></div>
-    </div>
-    <div class="mx">
-      <div class="mx-top"><span>本月占比</span><span class="ef" id="tp_m2v">{{ d.tp_m2v }}</span></div>
-      <div class="mx-bg"><div class="mx-fill" style="width:52%"></div></div>
-    </div>
+    <div class="ins"><b>1.5度电+</b> 销售占比同比提升 · <b>{tp_mix1}</b> → <b class="g">{tp_mix2}</b>，同比拉升 <b>{tp_mix3}</b></div>
+    <div class="mx"><div class="mx-top"><span>去年同期占比</span><span>{tp_m1v}</span></div><div class="mx-bg"><div class="mx-fill dim" style="width:32%"></div></div></div>
+    <div class="mx"><div class="mx-top"><span>本月占比</span><span>{tp_m2v}</span></div><div class="mx-bg"><div class="mx-fill" style="width:52%"></div></div></div>
     <div class="dv"></div>
     <div class="ins"><b class="t">E1500V2</b> 成功接替 E1000V2，占据春促销售榜单 <b class="t">BSR</b> 席位</div>
     <div class="dv"></div>
     <div class="two">
-      <div class="box"><div class="box-l">达成率</div><div class="box-v o"><span class="ef" id="tp_b1">{{ d.tp_b1 }}</span></div><div class="box-s">vs Budget</div></div>
-      <div class="box"><div class="box-l">同比增长</div><div class="box-v g"><span class="ef" id="tp_b2">{{ d.tp_b2 }}</span></div><div class="box-s">YoY Growth</div></div>
+      <div class="box"><div class="box-l">达成率</div><div class="box-v o">{tp_b1}</div><div class="box-s">vs Budget</div></div>
+      <div class="box"><div class="box-l">同比增长</div><div class="box-v g">{tp_b2}</div><div class="box-s">YoY Growth</div></div>
     </div>
   </div>
 </div>
-
 <div class="gap"></div>
 
-<!-- 官网 -->
 <div class="sec">
   <div class="sec-hd" onclick="tog(this)">
     <div class="sec-hd-l"><div class="bar t"></div><div class="sec-ttl">日本官网战果</div></div>
-    <div style="display:flex;align-items:center;gap:10px;">
-      <div class="sec-pk t"><span class="ef" id="w_pk">{{ d.w_pk }}</span></div>
-      <div class="chev open">▼</div>
-    </div>
+    <div style="display:flex;align-items:center;gap:10px;"><div class="sec-pk t">{w_pk}</div><div class="chev open">▼</div></div>
   </div>
   <div class="sec-bd" style="display:block;">
     <div class="cl t">
       <div class="cl-lbl">官网订单收入</div>
-      <div class="cl-num t"><span class="ef" id="w_num">{{ d.w_num }}</span></div>
-      <div class="tags">
-        <span class="tag tag-t"><span class="ef" id="w_t1">{{ d.w_t1 }}</span></span>
-        <span class="tag tag-r"><span class="ef" id="w_t2">{{ d.w_t2 }}</span></span>
-      </div>
+      <div class="cl-num t">{w_num}</div>
+      <div class="tags"><span class="tag tag-t">{w_t1}</span><span class="tag tag-r">{w_t2}</span></div>
     </div>
-    <div class="pb">
-      <div class="pb-top"><span>达成进度</span><span class="ef" id="w_pct">{{ d.w_pct }}</span></div>
-      <div class="pb-bg"><div class="pb-fill t" style="width:100%"></div></div>
-    </div>
+    <div class="pb"><div class="pb-top"><span>达成进度</span><span>{w_pct}</span></div><div class="pb-bg"><div class="pb-fill t" style="width:100%"></div></div></div>
     <div class="dv"></div>
     <div class="two" style="margin-bottom:14px;">
-      <div class="box"><div class="box-l">广告费率</div><div class="box-v r"><span class="ef" id="w_adv">{{ d.w_adv }}</span></div><div class="box-s"><span class="ef" id="w_advs">{{ d.w_advs }}</span></div></div>
-      <div class="box"><div class="box-l">达成率</div><div class="box-v t"><span class="ef" id="w_rate">{{ d.w_rate }}</span></div><div class="box-s">vs Budget</div></div>
+      <div class="box"><div class="box-l">广告费率</div><div class="box-v r">{w_adv}</div><div class="box-s">{w_advs}</div></div>
+      <div class="box"><div class="box-l">达成率</div><div class="box-v t">{w_rate}</div><div class="box-s">vs Budget</div></div>
     </div>
-    <div class="ins">⚡ <b class="t">1.5度电+</b> 销售额占比 <b class="t"><span class="ef" id="w_pct2">{{ d.w_pct2 }}</span></b>，超 OGSM 目标 <b class="g"><span class="ef" id="w_ogsm">{{ d.w_ogsm }}</span></b></div>
-    <div class="mx">
-      <div class="mx-top"><span>OGSM 目标</span><span class="ef" id="w_m1">{{ d.w_m1 }}</span></div>
-      <div class="mx-bg"><div class="mx-fill t-dim" style="width:60%"></div></div>
-    </div>
-    <div class="mx">
-      <div class="mx-top"><span>1.5度电+ 实际占比</span><span class="ef" id="w_m2">{{ d.w_m2 }}</span></div>
-      <div class="mx-bg"><div class="mx-fill t" style="width:70%"></div></div>
-    </div>
+    <div class="ins">⚡ <b class="t">1.5度电+</b> 销售额占比 <b class="t">{w_pct2}</b>，超 OGSM 目标 <b class="g">{w_ogsm}</b></div>
+    <div class="mx"><div class="mx-top"><span>OGSM 目标</span><span>{w_m1}</span></div><div class="mx-bg"><div class="mx-fill t-dim" style="width:60%"></div></div></div>
+    <div class="mx"><div class="mx-top"><span>1.5度电+ 实际占比</span><span>{w_m2}</span></div><div class="mx-bg"><div class="mx-fill t" style="width:70%"></div></div></div>
   </div>
 </div>
-
 <div class="gap"></div>
 
-<!-- 渠道 -->
 <div class="sec">
   <div class="sec-hd" onclick="tog(this)">
     <div class="sec-hd-l"><div class="bar p"></div><div class="sec-ttl">日本渠道战果</div></div>
-    <div style="display:flex;align-items:center;gap:10px;">
-      <div class="sec-pk p"><span class="ef" id="c_pk">{{ d.c_pk }}</span></div>
-      <div class="chev open">▼</div>
-    </div>
+    <div style="display:flex;align-items:center;gap:10px;"><div class="sec-pk p">{c_pk}</div><div class="chev open">▼</div></div>
   </div>
   <div class="sec-bd" style="display:block;">
     <div class="cl p">
       <div class="cl-lbl">渠道签收收入</div>
-      <div class="cl-num p"><span class="ef" id="c_num">{{ d.c_num }}</span></div>
-      <div class="tags">
-        <span class="tag tag-r"><span class="ef" id="c_t1">{{ d.c_t1 }}</span></span>
-        <span class="tag tag-g"><span class="ef" id="c_t2">{{ d.c_t2 }}</span></span>
-        <span class="tag tag-t"><span class="ef" id="c_t3">{{ d.c_t3 }}</span></span>
-      </div>
+      <div class="cl-num p">{c_num}</div>
+      <div class="tags"><span class="tag tag-r">{c_t1}</span><span class="tag tag-g">{c_t2}</span><span class="tag tag-t">{c_t3}</span></div>
     </div>
-    <div class="pb">
-      <div class="pb-top"><span>同比增速</span><span class="ef" id="c_pct">{{ d.c_pct }}</span></div>
-      <div class="pb-bg"><div class="pb-fill p" style="width:72%"></div></div>
-    </div>
+    <div class="pb"><div class="pb-top"><span>同比增速</span><span>{c_pct}</span></div><div class="pb-bg"><div class="pb-fill p" style="width:72%"></div></div></div>
     <div class="dv"></div>
     <div class="two" style="margin-bottom:14px;">
-      <div class="box"><div class="box-l">3度电收入占比</div><div class="box-v o"><span class="ef" id="c_b1">{{ d.c_b1 }}</span></div><div class="box-s"><span class="ef" id="c_b1s">{{ d.c_b1s }}</span></div></div>
-      <div class="box"><div class="box-l">利润率</div><div class="box-v t"><span class="ef" id="c_b2">{{ d.c_b2 }}</span></div><div class="box-s">Profit Margin</div></div>
+      <div class="box"><div class="box-l">3度电收入占比</div><div class="box-v o">{c_b1}</div><div class="box-s">{c_b1s}</div></div>
+      <div class="box"><div class="box-l">利润率</div><div class="box-v t">{c_b2}</div><div class="box-s">Profit Margin</div></div>
     </div>
     <div class="cl" style="margin-bottom:12px;">
       <div class="cl-lbl">📺 第二场电视购物</div>
-      <div class="cl-num"><span class="ef" id="tv_total">{{ d.tv_total }}</span></div>
-      <div class="tags"><span class="tag tag-r"><span class="ef" id="tv_badge">{{ d.tv_badge }}</span></span></div>
+      <div class="cl-num">{tv_total}</div>
+      <div class="tags"><span class="tag tag-r">{tv_badge}</span></div>
     </div>
     <div class="three">
-      <div class="box"><div class="box-l">合计</div><div class="box-v o"><span class="ef" id="tv_1">{{ d.tv_1 }}</span></div><div class="box-s">台</div></div>
-      <div class="box"><div class="box-l">1度电</div><div class="box-v t"><span class="ef" id="tv_2">{{ d.tv_2 }}</span></div><div class="box-s">台</div></div>
-      <div class="box"><div class="box-l">太阳能板</div><div class="box-v g"><span class="ef" id="tv_3">{{ d.tv_3 }}</span></div><div class="box-s">台</div></div>
+      <div class="box"><div class="box-l">合计</div><div class="box-v o">{tv_1}</div><div class="box-s">台</div></div>
+      <div class="box"><div class="box-l">1度电</div><div class="box-v t">{tv_2}</div><div class="box-s">台</div></div>
+      <div class="box"><div class="box-l">太阳能板</div><div class="box-v g">{tv_3}</div><div class="box-s">台</div></div>
     </div>
   </div>
 </div>
-
 <div class="gap"></div>
 
-<!-- 韩国台湾 -->
 <div class="sec">
   <div class="sec-hd" onclick="tog(this)">
     <div class="sec-hd-l"><div class="bar g"></div><div class="sec-ttl">韩国 &amp; 台湾战果</div></div>
-    <div style="display:flex;align-items:center;gap:10px;">
-      <div class="sec-pk g">双双翻倍增长</div>
-      <div class="chev">▼</div>
-    </div>
+    <div style="display:flex;align-items:center;gap:10px;"><div class="sec-pk g">双双翻倍增长</div><div class="chev">▼</div></div>
   </div>
   <div class="sec-bd" style="display:none;">
     <div class="two" style="margin-bottom:14px;">
-      <div class="box"><div class="box-l">韩国签收收入</div><div class="box-v g"><span class="ef" id="kr_num">{{ d.kr_num }}</span></div><div class="box-s" style="color:var(--green)"><span class="ef" id="kr_yoy">{{ d.kr_yoy }}</span></div></div>
-      <div class="box"><div class="box-l">台湾同比增长</div><div class="box-v g"><span class="ef" id="tw_yoy">{{ d.tw_yoy }}</span></div><div class="box-s" style="color:var(--gold)"><span class="ef" id="tw_pm">{{ d.tw_pm }}</span></div></div>
+      <div class="box"><div class="box-l">韩国签收收入</div><div class="box-v g">{kr_num}</div><div class="box-s" style="color:var(--green)">{kr_yoy}</div></div>
+      <div class="box"><div class="box-l">台湾同比增长</div><div class="box-v g">{tw_yoy}</div><div class="box-s" style="color:var(--gold)">{tw_pm}</div></div>
     </div>
-    <div class="pb">
-      <div class="pb-top"><span>韩国 YoY</span><span class="ef" id="kr_pct">{{ d.kr_pct }}</span></div>
-      <div class="pb-bg"><div class="pb-fill g" style="width:100%"></div></div>
-    </div>
-    <div class="pb" style="margin-top:10px;">
-      <div class="pb-top"><span>台湾 YoY</span><span class="ef" id="tw_pct">{{ d.tw_pct }}</span></div>
-      <div class="pb-bg"><div class="pb-fill t" style="width:100%"></div></div>
-    </div>
+    <div class="pb"><div class="pb-top"><span>韩国 YoY</span><span>{kr_pct}</span></div><div class="pb-bg"><div class="pb-fill g" style="width:100%"></div></div></div>
+    <div class="pb" style="margin-top:10px;"><div class="pb-top"><span>台湾 YoY</span><span>{tw_pct}</span></div><div class="pb-bg"><div class="pb-fill t" style="width:100%"></div></div></div>
   </div>
 </div>
-
 <div class="gap"></div>
 
-<!-- 市占率 -->
 <div class="sec">
   <div class="sec-hd" onclick="tog(this)">
     <div class="sec-hd-l"><div class="bar"></div><div class="sec-ttl">平台市占率</div></div>
-    <div style="display:flex;align-items:center;gap:10px;">
-      <div class="sec-pk">连续2年 #1</div>
-      <div class="chev">▼</div>
-    </div>
+    <div style="display:flex;align-items:center;gap:10px;"><div class="sec-pk">连续2年 #1</div><div class="chev">▼</div></div>
   </div>
   <div class="sec-bd" style="display:none;">
     <div class="ins" style="margin-bottom:14px;">★ <b>连续 2 年</b> 双平台市占率排名 <b class="g">第一</b>，持续领跑竞争对手</div>
     <div class="mkt-pair">
       <div class="mkt">
         <div class="mkt-nm">亚马逊</div>
-        <div class="mkt-sh"><span class="ef" id="amz_sh">{{ d.amz_sh }}</span></div>
-        <div class="mkt-chg"><span class="ef" id="amz_yoy">{{ d.amz_yoy }}</span></div>
-        <div class="mkt-ld"><span class="ef" id="amz_ld">{{ d.amz_ld }}</span></div>
-        <div class="mkt-bar-bg"><div class="mkt-bar-fill" style="width:47%;height:4px;border-radius:2px;background:linear-gradient(90deg,var(--gold),#ffcc66);"></div></div>
+        <div class="mkt-sh">{amz_sh}</div>
+        <div class="mkt-chg">{amz_yoy}</div>
+        <div class="mkt-ld">{amz_ld}</div>
+        <div class="mkt-bar-bg"><div class="mkt-bar-fill" style="width:47%;height:4px;border-radius:2px;background:linear-gradient(90deg,#F5A623,#ffcc66);"></div></div>
       </div>
       <div class="mkt">
         <div class="mkt-nm">乐天</div>
-        <div class="mkt-sh t"><span class="ef" id="rt_sh">{{ d.rt_sh }}</span></div>
-        <div class="mkt-chg"><span class="ef" id="rt_yoy">{{ d.rt_yoy }}</span></div>
-        <div class="mkt-ld"><span class="ef" id="rt_ld">{{ d.rt_ld }}</span></div>
-        <div class="mkt-bar-bg"><div class="mkt-bar-fill" style="width:43%;height:4px;border-radius:2px;background:linear-gradient(90deg,var(--teal),#7dd3fc);"></div></div>
+        <div class="mkt-sh t">{rt_sh}</div>
+        <div class="mkt-chg">{rt_yoy}</div>
+        <div class="mkt-ld">{rt_ld}</div>
+        <div class="mkt-bar-bg"><div class="mkt-bar-fill" style="width:43%;height:4px;border-radius:2px;background:linear-gradient(90deg,#38bdf8,#7dd3fc);"></div></div>
       </div>
     </div>
     <div class="dv"></div>
     <div class="two">
-      <div class="box"><div class="box-l">亚马逊 YoY</div><div class="box-v o"><span class="ef" id="amz_yoy2">{{ d.amz_yoy2 }}</span></div><div class="box-s"><span class="ef" id="amz_ld2">{{ d.amz_ld2 }}</span></div></div>
-      <div class="box"><div class="box-l">乐天 YoY</div><div class="box-v t"><span class="ef" id="rt_yoy2">{{ d.rt_yoy2 }}</span></div><div class="box-s"><span class="ef" id="rt_ld2">{{ d.rt_ld2 }}</span></div></div>
+      <div class="box"><div class="box-l">亚马逊 YoY</div><div class="box-v o">{amz_yoy2}</div><div class="box-s">{amz_ld2}</div></div>
+      <div class="box"><div class="box-l">乐天 YoY</div><div class="box-v t">{rt_yoy2}</div><div class="box-s">{rt_ld2}</div></div>
     </div>
   </div>
 </div>
 
 <div class="footer">
   <div class="footer-logo">Jackery</div>
-  <div class="footer-sub"><span class="ef" id="footer_sub">{{ d.footer_sub }}</span></div>
+  <div class="footer-sub">{footer_sub}</div>
 </div>
-
 </div>
+""".format(**{k: '<span class="ef" id="{0}">{1}</span>'.format(k, v) for k, v in d.items()})
 
-<script>
+    js = """
 var EDIT_PASSWORD = "";
 var editing = false;
-
-function tog(hd){
-  var bd=hd.nextElementSibling;
-  var ch=hd.querySelector('.chev');
-  var open=bd.style.display!=='none';
-  bd.style.display=open?'none':'block';
-  ch.classList.toggle('open',!open);
-}
-
-function showPwd(){
-  document.getElementById('pwdModal').classList.add('show');
-  document.getElementById('pwdInput').value='';
-  document.getElementById('pwdErr').style.display='none';
-  setTimeout(function(){document.getElementById('pwdInput').focus();},100);
-}
-function closePwd(){
-  document.getElementById('pwdModal').classList.remove('show');
-}
+function tog(hd){var bd=hd.nextElementSibling;var ch=hd.querySelector('.chev');var open=bd.style.display!=='none';bd.style.display=open?'none':'block';ch.classList.toggle('open',!open);}
+function showPwd(){document.getElementById('pwdModal').classList.add('show');document.getElementById('pwdInput').value='';document.getElementById('pwdErr').style.display='none';setTimeout(function(){document.getElementById('pwdInput').focus();},100);}
+function closePwd(){document.getElementById('pwdModal').classList.remove('show');}
 function confirmPwd(){
   var pwd=document.getElementById('pwdInput').value;
   fetch('/verify',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:pwd})})
   .then(function(r){return r.json();})
-  .then(function(res){
-    if(res.ok){
-      EDIT_PASSWORD=pwd;
-      closePwd();
-      enterEdit();
-    } else {
-      document.getElementById('pwdErr').style.display='block';
-      document.getElementById('pwdInput').value='';
-      document.getElementById('pwdInput').focus();
-    }
-  });
+  .then(function(res){if(res.ok){EDIT_PASSWORD=pwd;closePwd();enterEdit();}else{document.getElementById('pwdErr').style.display='block';document.getElementById('pwdInput').value='';document.getElementById('pwdInput').focus();}});
 }
-
-function enterEdit(){
-  editing=true;
-  document.body.classList.add('editing');
-  document.querySelectorAll('.ef').forEach(function(el){el.setAttribute('contenteditable','true');});
-  document.getElementById('btnEdit').style.display='none';
-  document.getElementById('btnSave').style.display='flex';
-  document.getElementById('btnCancel').style.display='flex';
-  document.getElementById('editHint').style.display='block';
-}
-
-function cancelEdit(){
-  editing=false;
-  document.body.classList.remove('editing');
-  document.querySelectorAll('.ef').forEach(function(el){el.setAttribute('contenteditable','false');el.blur();});
-  document.getElementById('btnEdit').style.display='flex';
-  document.getElementById('btnSave').style.display='none';
-  document.getElementById('btnCancel').style.display='none';
-  document.getElementById('editHint').style.display='none';
-  location.reload();
-}
-
+function enterEdit(){editing=true;document.body.classList.add('editing');document.querySelectorAll('.ef').forEach(function(el){el.setAttribute('contenteditable','true');});document.getElementById('btnEdit').style.display='none';document.getElementById('btnSave').style.display='flex';document.getElementById('btnCancel').style.display='flex';document.getElementById('editHint').style.display='block';}
+function cancelEdit(){editing=false;document.body.classList.remove('editing');document.querySelectorAll('.ef').forEach(function(el){el.setAttribute('contenteditable','false');el.blur();});document.getElementById('btnEdit').style.display='flex';document.getElementById('btnSave').style.display='none';document.getElementById('btnCancel').style.display='none';document.getElementById('editHint').style.display='none';location.reload();}
 function saveData(){
   var data={};
-  document.querySelectorAll('.ef[id]').forEach(function(el){
-    data[el.id]=el.innerText.trim();
-  });
-  fetch('/save',{
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({data:data,password:EDIT_PASSWORD})
-  })
+  document.querySelectorAll('.ef[id]').forEach(function(el){data[el.id]=el.innerText.trim();});
+  fetch('/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({data:data,password:EDIT_PASSWORD})})
   .then(function(r){return r.json();})
-  .then(function(res){
-    if(res.ok){
-      editing=false;
-      document.body.classList.remove('editing');
-      document.querySelectorAll('.ef').forEach(function(el){el.setAttribute('contenteditable','false');el.blur();});
-      document.getElementById('btnEdit').style.display='flex';
-      document.getElementById('btnSave').style.display='none';
-      document.getElementById('btnCancel').style.display='none';
-      document.getElementById('editHint').style.display='none';
-      var t=document.getElementById('saveToast');
-      t.style.display='block';
-      setTimeout(function(){t.style.display='none';},3000);
-    }
-  });
+  .then(function(res){if(res.ok){editing=false;document.body.classList.remove('editing');document.querySelectorAll('.ef').forEach(function(el){el.setAttribute('contenteditable','false');el.blur();});document.getElementById('btnEdit').style.display='flex';document.getElementById('btnSave').style.display='none';document.getElementById('btnCancel').style.display='none';document.getElementById('editHint').style.display='none';var t=document.getElementById('saveToast');t.style.display='block';setTimeout(function(){t.style.display='none';},3000);}});
 }
+document.addEventListener('keydown',function(e){if(!editing)return;if(e.key==='Escape')cancelEdit();});
+"""
 
-document.addEventListener('keydown',function(e){
-  if(!editing) return;
-  if(e.key==='Escape') cancelEdit();
-});
-</script>
+    return """<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Jackery 日本地区达成情况</title>
+<style>{css}</style>
+</head>
+<body>
+{body}
+<script>{js}</script>
 </body>
-</html>"""
+</html>""".format(css=css, body=body, js=js)
+
 
 @app.route("/")
 def index():
     d = get_data()
-    return render_template_string(HTML_TEMPLATE, d=d)
+    return build_html(d)
 
 @app.route("/verify", methods=["POST"])
 def verify():
